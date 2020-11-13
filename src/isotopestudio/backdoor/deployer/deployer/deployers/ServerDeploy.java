@@ -1,4 +1,4 @@
-package istopestudio.backdoor.push.pusher.pushers;
+package isotopestudio.backdoor.deployer.deployer.deployers;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -10,23 +10,15 @@ import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
-import istopestudio.backdoor.push.BackdoorPush;
-import istopestudio.backdoor.push.ProductType;
-import istopestudio.backdoor.push.VersionType;
-import istopestudio.backdoor.push.pusher.Pusher;
-import net.dv8tion.jda.api.entities.TextChannel;
+import isotopestudio.backdoor.deployer.BackdoorDeployer;
+import isotopestudio.backdoor.deployer.ProductType;
+import isotopestudio.backdoor.deployer.VersionType;
+import isotopestudio.backdoor.deployer.deployer.Deployer;
 
-public class ServerPush extends Pusher {
+public class ServerDeploy extends Deployer {
 
-	public ServerPush(VersionType versionType) {
-		super(versionType, ProductType.SERVER, "BackdoorServer");
-	}
-
-	@Override
-	public boolean push(String... arguments) throws FileNotFoundException, IOException, InterruptedException {
-		BackdoorPush.getDiscordbot().sendMessage("```Launch of the new " + getVersionType().toString()
-				+ " online version of " + getProductType().toString() + "```");
-		return super.push(arguments);
+	public ServerDeploy() {
+		super(VersionType.RELEASE, "BackdoorServer");
 	}
 
 	private File changelogs_file;
@@ -42,14 +34,10 @@ public class ServerPush extends Pusher {
 			Model model = reader.read(new FileInputStream(new File(getDestination(), "pom.xml")));
 			String version = model.getVersion();
 
-			TextChannel channel = BackdoorPush.getDiscordbot().getTextChannel();
-			
-			File resources_directory = new File(BackdoorPush.getConfig().getProperty("resources.directory"));
+			File resources_directory = new File(BackdoorDeployer.getConfig().getProperty("resources.directory"));
 
 			FileUtils.copyFileToDirectory(new File(getDestination(), "target/server.jar"),
 					new File(resources_directory, (getVersionType().toString() + "s") + "/"));
-
-			channel.sendMessage("```[INFO] Deploy success!```").queue();
 			return true;
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();

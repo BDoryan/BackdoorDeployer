@@ -1,4 +1,4 @@
-package istopestudio.backdoor.push;
+package isotopestudio.backdoor.deployer;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -10,8 +10,7 @@ import java.util.zip.ZipInputStream;
 
 public class ZipTools {
 
-
-	public static File unzip(File destination, File file) throws FileNotFoundException, IOException {
+	public static File unzip(File destitation, File file) throws FileNotFoundException, IOException {
 		byte[] buffer = new byte[1024];
 
 		ZipInputStream zis = new ZipInputStream(new FileInputStream(file));
@@ -21,7 +20,7 @@ public class ZipTools {
 
 		while (ze != null) {
 			String fileName = ze.getName();
-			File newFile = new File(destination, fileName);
+			File newFile = new File(destitation, fileName);
 
 			if (ze.isDirectory()) {
 				newFile.mkdirs();

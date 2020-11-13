@@ -1,4 +1,4 @@
-package istopestudio.backdoor.push.pusher.pushers;
+package isotopestudio.backdoor.deployer.deployer.deployers;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -16,25 +16,25 @@ import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 import doryanbessiere.isotopestudio.api.updater.FileFilesUpdate;
-import istopestudio.backdoor.push.BackdoorPush;
-import istopestudio.backdoor.push.ProductType;
-import istopestudio.backdoor.push.VersionType;
-import istopestudio.backdoor.push.pusher.Pusher;
-import net.dv8tion.jda.api.entities.TextChannel;
+import isotopestudio.backdoor.deployer.BackdoorDeployer;
+import isotopestudio.backdoor.deployer.VersionType;
+import isotopestudio.backdoor.deployer.deployer.Deployer;
 
-public class GamePush extends Pusher {
+public class GameDeploy extends Deployer {
 
-	public GamePush(VersionType versionType) {
-		super(versionType, ProductType.GAME, "BackdoorGame");
-	}
-	
-	@Override
-	public boolean push(String... arguments) throws FileNotFoundException, IOException, InterruptedException {
-		BackdoorPush.getDiscordbot().sendMessage("```Launch of the new "+getVersionType().toString()+" online version of "+getProductType().toString()+"```");
-		return super.push(arguments);
+	public GameDeploy() {
+		super(VersionType.RELEASE, "BackdoorGame");
 	}
 	
 	private File changelogs_file;
+	private String version;
+	
+	/**
+	 * @return the build version
+	 */
+	public String getVersion() {
+		return version;
+	}
 	
 	public File getChangelogsFile() {
 		return changelogs_file;
@@ -48,7 +48,7 @@ public class GamePush extends Pusher {
 			String buildVersion = model.getVersion();
 
 			File latest_directory = new File(
-					BackdoorPush.getConfig().getProperty("update.latest." + getVersionType().toString()));
+					BackdoorDeployer.getConfig().getProperty("update.latest." + getVersionType().toString().toLowerCase()));
 
 			File content = new File(getDestination(), "game_content");
 			if (content.exists()) {
@@ -69,10 +69,9 @@ public class GamePush extends Pusher {
 			FileUtils.copyFileToDirectory(new File(getDestination(), "target/game.properties"),
 					content);
 			
-			BackdoorPush.getDiscordbot().getTextChannel().sendMessage("```[INFO] Reviewing Modified Files !```").queue();
-
-			ArrayList<String> update_logs = new ArrayList<>();
-
+			log("Update Logs:");
+			log("");
+			
 			File files_update_file = new File(latest_directory.getParent(), "files.update");
 			FileFilesUpdate fileFilesUpdate = null;
 
@@ -81,7 +80,6 @@ public class GamePush extends Pusher {
 				fileFilesUpdate = new FileFilesUpdate(files_update_file);
 
 				if (!fileFilesUpdate.read()) {
-					BackdoorPush.getDiscordbot().getTextChannel().sendMessage("```[ERROR] files.update cannot be read!```").queue();
 					return false;
 				}
 
@@ -91,12 +89,12 @@ public class GamePush extends Pusher {
 				for (String file : last_version_files) {
 					if (!new_version_files.contains(file)) {
 						fileFilesUpdate.removeFile(file);
-						update_logs.add(file + " has been removed.");
+						log(file + " has been removed.");
 					} else {
 						if (!FileUtils.contentEquals(new File(latest_directory, file),
 								new File(content, file))) {
 							fileFilesUpdate.setFile(file, buildVersion);
-							update_logs.add(file + " has been changed.");
+							log(file + " has been changed.");
 						}
 					}
 				}
@@ -104,7 +102,7 @@ public class GamePush extends Pusher {
 				for (String file : new_version_files) {
 					if (!last_version_files.contains(file)) {
 						fileFilesUpdate.addFile(file, buildVersion);
-						update_logs.add(file + " has been added.");
+						log(file + " has been added.");
 					}
 				}
 
@@ -113,7 +111,6 @@ public class GamePush extends Pusher {
 				files_update_file.createNewFile();
 
 				if (!fileFilesUpdate.save()) {
-					BackdoorPush.getDiscordbot().getTextChannel().sendMessage("```[ERROR] files.update cannot be saved!```").queue();
 					return false;
 				}
 			} else {
@@ -122,21 +119,17 @@ public class GamePush extends Pusher {
 				List<String> new_version_files = search(content, content);
 				for (String file : new_version_files) {
 					fileFilesUpdate.addFile(file, buildVersion);
-					update_logs.add(file + " has been implemented!");
+					log(file + " has been implemented!");
 				}
 
 				if (!fileFilesUpdate.save()) {
-					BackdoorPush.getDiscordbot().getTextChannel().sendMessage("```[ERROR] files.update cannot be saved!```").queue();
 					return false;
 				}
 			}
 
-			if (!updateLibrairies(latest_directory, BackdoorPush.getDiscordbot().getTextChannel(), getDestination(), content,
-					update_logs, buildVersion))
+			if (!updateLibrairies(latest_directory, getDestination(), content, buildVersion))
 				return false;
 			
-			BackdoorPush.getDiscordbot().getTextChannel().sendMessage("```[INFO] Uploading the update...!```").queue();
-
 			if (latest_directory.exists()) {
 				FileUtils.deleteDirectory(latest_directory);
 			}
@@ -155,11 +148,11 @@ public class GamePush extends Pusher {
 					latest_directory);
 			
 			this.changelogs_file = new File(content, "changelogs.log");
+			this.version = buildVersion;
 			
 			try {
-				BackdoorPush.getIsotopeStudioDatabase().setString(getVersionType().getTable(), "name", "backdoor",
+				BackdoorDeployer.getIsotopeStudioDatabase().setString(getVersionType().getTable(), "name", "backdoor",
 						"version", buildVersion);
-				BackdoorPush.getDiscordbot().getTextChannel().sendMessage("```[INFO] Deploy success !```").queue();
 			} catch (SQLException e) {
 				e.printStackTrace();
 				return false;
@@ -176,8 +169,8 @@ public class GamePush extends Pusher {
 		return false;
 	}
 
-	private boolean updateLibrairies(File latest_directory, TextChannel channel, File unzip_directory,
-			File game_content_directory, ArrayList<String> update_logs, String version) throws IOException {
+	private boolean updateLibrairies(File latest_directory, File unzip_directory,
+			File game_content_directory, String version) throws IOException {
 		
 		FileUtils.copyDirectoryToDirectory(new File(unzip_directory, "target/libs"), game_content_directory);
 		/*
@@ -207,11 +200,9 @@ public class GamePush extends Pusher {
 				parent.mkdirs();
 			
 			for (String children : system.getValue()) {
-				update_logs.add("");
-				update_logs.add("## "+system.getKey()+"/"+children+" Update Logs ##");
+				log("");
+				log("## "+system.getKey()+"/"+children+" Update Logs ##");
 				
-				channel.sendMessage("`Updating operating system librairies : " + system.getKey() + " ["
-						+ children + "]`").queue();
 				File children_directory = new File(parent, children);
 				if (!children_directory.exists())
 					children_directory.mkdirs();
@@ -265,7 +256,6 @@ public class GamePush extends Pusher {
 					fileFilesUpdate = new FileFilesUpdate(files_update_file);
 
 					if (!fileFilesUpdate.read()) {
-						channel.sendMessage("```[ERROR] files.update cannot be read!```").queue();
 						return false;
 					}
 
@@ -275,7 +265,7 @@ public class GamePush extends Pusher {
 					for (String file : last_version_files) {
 						if (!new_version_files.contains(file)) {
 							fileFilesUpdate.removeFile(file);
-							update_logs.add(file + " has been removed.");
+							log(file + " has been removed.");
 						} else {
 							/*
 							 * Je n'utilise pas cette fonctionnalité car elle ne fonctionne pas pour les fichiers '.jar'
@@ -286,7 +276,7 @@ public class GamePush extends Pusher {
 							if (!FileUtils.contentEquals(new File(latest_librairies_directory, file),
 									new File(librairies_destination, file))) {
 								fileFilesUpdate.setFile(file, version);
-								update_logs.add(file + " has been changed.");
+								log(file + " has been changed.");
 							}
 							*/
 						}
@@ -295,7 +285,7 @@ public class GamePush extends Pusher {
 					for (String file : new_version_files) {
 						if (!last_version_files.contains(file)) {
 							fileFilesUpdate.addFile(file, version);
-							update_logs.add(file + " has been added.");
+							log(file + " has been added.");
 						}
 					}
 
@@ -305,7 +295,6 @@ public class GamePush extends Pusher {
 					files_update_file.createNewFile();
 
 					if (!fileFilesUpdate.save()) {
-						channel.sendMessage("```[ERROR] files.update cannot be saved!```").queue();
 						return false;
 					}
 				} else {
@@ -314,11 +303,10 @@ public class GamePush extends Pusher {
 					List<String> new_version_files = search(librairies_destination, librairies_destination);
 					for (String file : new_version_files) {
 						fileFilesUpdate.addFile(file, version);
-						update_logs.add(file + " has been implemented!");
+						log(file + " has been implemented!");
 					}
 
 					if (!fileFilesUpdate.save()) {
-						channel.sendMessage("```[ERROR] files.update cannot be saved!```").queue();
 						return false;
 					}
 				}

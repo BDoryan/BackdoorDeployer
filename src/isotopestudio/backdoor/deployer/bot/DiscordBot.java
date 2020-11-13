@@ -1,4 +1,4 @@
-package istopestudio.backdoor.push.bot;
+package isotopestudio.backdoor.deployer.bot;
 
 import javax.security.auth.login.LoginException;
 
